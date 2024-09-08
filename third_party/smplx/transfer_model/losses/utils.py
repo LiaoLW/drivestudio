@@ -16,6 +16,7 @@
 
 import torch
 
+
 def get_reduction_method(reduction='mean'):
     if reduction == 'mean':
         return torch.mean

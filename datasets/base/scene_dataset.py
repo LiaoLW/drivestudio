@@ -13,11 +13,13 @@ from .split_wrapper import SplitWrapper
 
 logger = logging.getLogger()
 
+
 class ModelType(IntEnum):
     RigidNodes = 0
     SMPLNodes = 1
     DeformableNodes = 2
-    
+
+
 class SceneDataset(abc.ABC):
     """
     Base class for scene dataset.
@@ -33,7 +35,7 @@ class SceneDataset(abc.ABC):
     # train_timesteps are timesteps, so the length is num_timesteps (len(unique_timesteps))
     train_timesteps: Tensor = None
     test_timesteps: Tensor = None
-    
+
     # dataset layout for multi-camera visualization
     layout: Callable = None
 
@@ -79,7 +81,7 @@ class SceneDataset(abc.ABC):
         else:
             aabb = self.pixel_source.get_aabb()
         return aabb
-    
+
     def get_init_pcd(self) -> Tensor:
         raise NotImplementedError
 

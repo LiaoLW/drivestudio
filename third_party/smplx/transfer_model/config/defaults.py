@@ -16,6 +16,7 @@
 
 from typing import Tuple, Optional
 from copy import deepcopy
+
 #  from yacs.config import CfgNode as CN
 from dataclasses import dataclass
 from omegaconf import OmegaConf

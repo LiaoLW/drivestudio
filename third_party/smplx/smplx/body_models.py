@@ -174,8 +174,12 @@ class SMPL(nn.Module):
         if self.age == "kid":
             v_template_smil = np.load(kid_template_path)
             v_template_smil -= np.mean(v_template_smil, axis=0)
-            v_template_diff = np.expand_dims(v_template_smil - data_struct.v_template, axis=2)
-            shapedirs = np.concatenate((shapedirs[:, :, :num_betas], v_template_diff), axis=2)
+            v_template_diff = np.expand_dims(
+                v_template_smil - data_struct.v_template, axis=2
+            )
+            shapedirs = np.concatenate(
+                (shapedirs[:, :, :num_betas], v_template_diff), axis=2
+            )
             num_betas = num_betas + 1
 
         self._num_betas = num_betas
@@ -192,11 +196,14 @@ class SMPL(nn.Module):
 
         self.joint_mapper = joint_mapper
 
-        self.vertex_joint_selector = VertexJointSelector(vertex_ids=vertex_ids, **kwargs)
+        self.vertex_joint_selector = VertexJointSelector(
+            vertex_ids=vertex_ids, **kwargs
+        )
 
         self.faces = data_struct.f
         self.register_buffer(
-            "faces_tensor", to_tensor(to_np(self.faces, dtype=np.int64), dtype=torch.long)
+            "faces_tensor",
+            to_tensor(to_np(self.faces, dtype=np.int64), dtype=torch.long),
         )
 
         if create_betas:
@@ -208,7 +215,9 @@ class SMPL(nn.Module):
                 else:
                     default_betas = torch.tensor(betas, dtype=dtype)
 
-            self.register_parameter("betas", nn.Parameter(default_betas, requires_grad=True))
+            self.register_parameter(
+                "betas", nn.Parameter(default_betas, requires_grad=True)
+            )
 
         # The tensor that contains the global rotation of the model
         # It is separated from the pose of the joints in case we wish to
@@ -227,7 +236,9 @@ class SMPL(nn.Module):
 
         if create_body_pose:
             if body_pose is None:
-                default_body_pose = torch.zeros([batch_size, self.NUM_BODY_JOINTS * 3], dtype=dtype)
+                default_body_pose = torch.zeros(
+                    [batch_size, self.NUM_BODY_JOINTS * 3], dtype=dtype
+                )
             else:
                 if torch.is_tensor(body_pose):
                     default_body_pose = body_pose.clone().detach()
@@ -239,10 +250,14 @@ class SMPL(nn.Module):
 
         if create_transl:
             if transl is None:
-                default_transl = torch.zeros([batch_size, 3], dtype=dtype, requires_grad=True)
+                default_transl = torch.zeros(
+                    [batch_size, 3], dtype=dtype, requires_grad=True
+                )
             else:
                 default_transl = torch.tensor(transl, dtype=dtype)
-            self.register_parameter("transl", nn.Parameter(default_transl, requires_grad=True))
+            self.register_parameter(
+                "transl", nn.Parameter(default_transl, requires_grad=True)
+            )
 
         if v_template is None:
             v_template = data_struct.v_template
@@ -357,7 +372,9 @@ class SMPL(nn.Module):
         """
         # If no shape and pose parameters are passed along, then use the
         # ones from the module
-        global_orient = global_orient if global_orient is not None else self.global_orient
+        global_orient = (
+            global_orient if global_orient is not None else self.global_orient
+        )
         body_pose = body_pose if body_pose is not None else self.body_pose
         betas = betas if betas is not None else self.betas
 
@@ -481,15 +498,20 @@ class SMPLLayer(SMPL):
                 .contiguous()
             )
         if betas is None:
-            betas = torch.zeros([batch_size, self.num_betas], dtype=dtype, device=device)
+            betas = torch.zeros(
+                [batch_size, self.num_betas], dtype=dtype, device=device
+            )
         if transl is None:
             transl = torch.zeros([batch_size, 3], dtype=dtype, device=device)
         full_pose = torch.cat(
-            [global_orient.reshape(-1, 1, 3, 3), body_pose.reshape(-1, self.NUM_BODY_JOINTS, 3, 3)],
+            [
+                global_orient.reshape(-1, 1, 3, 3),
+                body_pose.reshape(-1, self.NUM_BODY_JOINTS, 3, 3),
+            ],
             dim=1,
         )
 
-        vertices, joints, T, v_posed, A, J= lbs(
+        vertices, joints, T, v_posed, A, J = lbs(
             betas,
             full_pose,
             self.v_template,
@@ -650,7 +672,8 @@ class SMPLH(SMPL):
                 "left_hand_components", torch.tensor(left_hand_components, dtype=dtype)
             )
             self.register_buffer(
-                "right_hand_components", torch.tensor(right_hand_components, dtype=dtype)
+                "right_hand_components",
+                torch.tensor(right_hand_components, dtype=dtype),
             )
 
         if self.flat_hand_mean:
@@ -663,14 +686,20 @@ class SMPLH(SMPL):
         else:
             right_hand_mean = data_struct.hands_meanr
 
-        self.register_buffer("left_hand_mean", to_tensor(left_hand_mean, dtype=self.dtype))
-        self.register_buffer("right_hand_mean", to_tensor(right_hand_mean, dtype=self.dtype))
+        self.register_buffer(
+            "left_hand_mean", to_tensor(left_hand_mean, dtype=self.dtype)
+        )
+        self.register_buffer(
+            "right_hand_mean", to_tensor(right_hand_mean, dtype=self.dtype)
+        )
 
         # Create the buffers for the pose of the left hand
         hand_pose_dim = num_pca_comps if use_pca else 3 * self.NUM_HAND_JOINTS
         if create_left_hand_pose:
             if left_hand_pose is None:
-                default_lhand_pose = torch.zeros([batch_size, hand_pose_dim], dtype=dtype)
+                default_lhand_pose = torch.zeros(
+                    [batch_size, hand_pose_dim], dtype=dtype
+                )
             else:
                 default_lhand_pose = torch.tensor(left_hand_pose, dtype=dtype)
 
@@ -679,7 +708,9 @@ class SMPLH(SMPL):
 
         if create_right_hand_pose:
             if right_hand_pose is None:
-                default_rhand_pose = torch.zeros([batch_size, hand_pose_dim], dtype=dtype)
+                default_rhand_pose = torch.zeros(
+                    [batch_size, hand_pose_dim], dtype=dtype
+                )
             else:
                 default_rhand_pose = torch.tensor(right_hand_pose, dtype=dtype)
 
@@ -687,7 +718,9 @@ class SMPLH(SMPL):
             self.register_parameter("right_hand_pose", right_hand_pose_param)
 
         # Create the buffer for the mean pose.
-        pose_mean_tensor = self.create_mean_pose(data_struct, flat_hand_mean=flat_hand_mean)
+        pose_mean_tensor = self.create_mean_pose(
+            data_struct, flat_hand_mean=flat_hand_mean
+        )
         if not torch.is_tensor(pose_mean_tensor):
             pose_mean_tensor = torch.tensor(pose_mean_tensor, dtype=dtype)
         self.register_buffer("pose_mean", pose_mean_tensor)
@@ -699,7 +732,13 @@ class SMPLH(SMPL):
         body_pose_mean = torch.zeros([self.NUM_BODY_JOINTS * 3], dtype=self.dtype)
 
         pose_mean = torch.cat(
-            [global_orient_mean, body_pose_mean, self.left_hand_mean, self.right_hand_mean], dim=0
+            [
+                global_orient_mean,
+                body_pose_mean,
+                self.left_hand_mean,
+                self.right_hand_mean,
+            ],
+            dim=0,
         )
         return pose_mean
 
@@ -731,11 +770,17 @@ class SMPLH(SMPL):
 
         # If no shape and pose parameters are passed along, then use the
         # ones from the module
-        global_orient = global_orient if global_orient is not None else self.global_orient
+        global_orient = (
+            global_orient if global_orient is not None else self.global_orient
+        )
         body_pose = body_pose if body_pose is not None else self.body_pose
         betas = betas if betas is not None else self.betas
-        left_hand_pose = left_hand_pose if left_hand_pose is not None else self.left_hand_pose
-        right_hand_pose = right_hand_pose if right_hand_pose is not None else self.right_hand_pose
+        left_hand_pose = (
+            left_hand_pose if left_hand_pose is not None else self.left_hand_pose
+        )
+        right_hand_pose = (
+            right_hand_pose if right_hand_pose is not None else self.right_hand_pose
+        )
 
         apply_trans = transl is not None or hasattr(self, "transl")
         if transl is None:
@@ -743,12 +788,16 @@ class SMPLH(SMPL):
                 transl = self.transl
 
         if self.use_pca:
-            left_hand_pose = torch.einsum("bi,ij->bj", [left_hand_pose, self.left_hand_components])
+            left_hand_pose = torch.einsum(
+                "bi,ij->bj", [left_hand_pose, self.left_hand_components]
+            )
             right_hand_pose = torch.einsum(
                 "bi,ij->bj", [right_hand_pose, self.right_hand_components]
             )
 
-        full_pose = torch.cat([global_orient, body_pose, left_hand_pose, right_hand_pose], dim=1)
+        full_pose = torch.cat(
+            [global_orient, body_pose, left_hand_pose, right_hand_pose], dim=1
+        )
         full_pose += self.pose_mean
 
         vertices, joints = lbs(
@@ -852,7 +901,14 @@ class SMPLHLayer(SMPLH):
         Returns
         -------
         """
-        model_vars = [betas, global_orient, body_pose, transl, left_hand_pose, right_hand_pose]
+        model_vars = [
+            betas,
+            global_orient,
+            body_pose,
+            transl,
+            left_hand_pose,
+            right_hand_pose,
+        ]
         batch_size = 1
         for var in model_vars:
             if var is None:
@@ -888,7 +944,9 @@ class SMPLHLayer(SMPLH):
                 .contiguous()
             )
         if betas is None:
-            betas = torch.zeros([batch_size, self.num_betas], dtype=dtype, device=device)
+            betas = torch.zeros(
+                [batch_size, self.num_betas], dtype=dtype, device=device
+            )
         if transl is None:
             transl = torch.zeros([batch_size, 3], dtype=dtype, device=device)
 
@@ -1051,14 +1109,20 @@ class SMPLX(SMPLH):
         )
 
         lmk_faces_idx = data_struct.lmk_faces_idx
-        self.register_buffer("lmk_faces_idx", torch.tensor(lmk_faces_idx, dtype=torch.long))
+        self.register_buffer(
+            "lmk_faces_idx", torch.tensor(lmk_faces_idx, dtype=torch.long)
+        )
         lmk_bary_coords = data_struct.lmk_bary_coords
-        self.register_buffer("lmk_bary_coords", torch.tensor(lmk_bary_coords, dtype=dtype))
+        self.register_buffer(
+            "lmk_bary_coords", torch.tensor(lmk_bary_coords, dtype=dtype)
+        )
 
         self.use_face_contour = use_face_contour
         if self.use_face_contour:
             dynamic_lmk_faces_idx = data_struct.dynamic_lmk_faces_idx
-            dynamic_lmk_faces_idx = torch.tensor(dynamic_lmk_faces_idx, dtype=torch.long)
+            dynamic_lmk_faces_idx = torch.tensor(
+                dynamic_lmk_faces_idx, dtype=torch.long
+            )
             self.register_buffer("dynamic_lmk_faces_idx", dynamic_lmk_faces_idx)
 
             dynamic_lmk_bary_coords = data_struct.dynamic_lmk_bary_coords
@@ -1066,7 +1130,9 @@ class SMPLX(SMPLH):
             self.register_buffer("dynamic_lmk_bary_coords", dynamic_lmk_bary_coords)
 
             neck_kin_chain = find_joint_kin_chain(self.NECK_IDX, self.parents)
-            self.register_buffer("neck_kin_chain", torch.tensor(neck_kin_chain, dtype=torch.long))
+            self.register_buffer(
+                "neck_kin_chain", torch.tensor(neck_kin_chain, dtype=torch.long)
+            )
 
         if create_jaw_pose:
             if jaw_pose is None:
@@ -1106,7 +1172,9 @@ class SMPLX(SMPLH):
         else:
             expr_start_idx = self.SHAPE_SPACE_DIM
             expr_end_idx = self.SHAPE_SPACE_DIM + num_expression_coeffs
-            num_expression_coeffs = min(num_expression_coeffs, self.EXPRESSION_SPACE_DIM)
+            num_expression_coeffs = min(
+                num_expression_coeffs, self.EXPRESSION_SPACE_DIM
+            )
 
         self._num_expression_coeffs = num_expression_coeffs
 
@@ -1231,12 +1299,18 @@ class SMPLX(SMPLH):
 
         # If no shape and pose parameters are passed along, then use the
         # ones from the module
-        global_orient = global_orient if global_orient is not None else self.global_orient
+        global_orient = (
+            global_orient if global_orient is not None else self.global_orient
+        )
         body_pose = body_pose if body_pose is not None else self.body_pose
         betas = betas if betas is not None else self.betas
 
-        left_hand_pose = left_hand_pose if left_hand_pose is not None else self.left_hand_pose
-        right_hand_pose = right_hand_pose if right_hand_pose is not None else self.right_hand_pose
+        left_hand_pose = (
+            left_hand_pose if left_hand_pose is not None else self.left_hand_pose
+        )
+        right_hand_pose = (
+            right_hand_pose if right_hand_pose is not None else self.right_hand_pose
+        )
         jaw_pose = jaw_pose if jaw_pose is not None else self.jaw_pose
         leye_pose = leye_pose if leye_pose is not None else self.leye_pose
         reye_pose = reye_pose if reye_pose is not None else self.reye_pose
@@ -1248,7 +1322,9 @@ class SMPLX(SMPLH):
                 transl = self.transl
 
         if self.use_pca:
-            left_hand_pose = torch.einsum("bi,ij->bj", [left_hand_pose, self.left_hand_components])
+            left_hand_pose = torch.einsum(
+                "bi,ij->bj", [left_hand_pose, self.left_hand_components]
+            )
             right_hand_pose = torch.einsum(
                 "bi,ij->bj", [right_hand_pose, self.right_hand_components]
             )
@@ -1291,8 +1367,12 @@ class SMPLX(SMPLH):
             pose2rot=pose2rot,
         )
 
-        lmk_faces_idx = self.lmk_faces_idx.unsqueeze(dim=0).expand(batch_size, -1).contiguous()
-        lmk_bary_coords = self.lmk_bary_coords.unsqueeze(dim=0).repeat(self.batch_size, 1, 1)
+        lmk_faces_idx = (
+            self.lmk_faces_idx.unsqueeze(dim=0).expand(batch_size, -1).contiguous()
+        )
+        lmk_bary_coords = self.lmk_bary_coords.unsqueeze(dim=0).repeat(
+            self.batch_size, 1, 1
+        )
         if self.use_face_contour:
             lmk_idx_and_bcoords = find_dynamic_lmk_idx_and_bcoords(
                 vertices,
@@ -1309,7 +1389,9 @@ class SMPLX(SMPLH):
                 [lmk_bary_coords.expand(batch_size, -1, -1), dyn_lmk_bary_coords], 1
             )
 
-        landmarks = vertices2landmarks(vertices, self.faces_tensor, lmk_faces_idx, lmk_bary_coords)
+        landmarks = vertices2landmarks(
+            vertices, self.faces_tensor, lmk_faces_idx, lmk_bary_coords
+        )
 
         # Add any extra joints that might be needed
         joints = self.vertex_joint_selector(vertices, joints)
@@ -1501,7 +1583,9 @@ class SMPLXLayer(SMPLX):
                 [batch_size, self.num_expression_coeffs], dtype=dtype, device=device
             )
         if betas is None:
-            betas = torch.zeros([batch_size, self.num_betas], dtype=dtype, device=device)
+            betas = torch.zeros(
+                [batch_size, self.num_betas], dtype=dtype, device=device
+            )
         if transl is None:
             transl = torch.zeros([batch_size, 3], dtype=dtype, device=device)
 
@@ -1534,7 +1618,9 @@ class SMPLXLayer(SMPLX):
             pose2rot=False,
         )
 
-        lmk_faces_idx = self.lmk_faces_idx.unsqueeze(dim=0).expand(batch_size, -1).contiguous()
+        lmk_faces_idx = (
+            self.lmk_faces_idx.unsqueeze(dim=0).expand(batch_size, -1).contiguous()
+        )
         lmk_bary_coords = self.lmk_bary_coords.unsqueeze(dim=0).repeat(batch_size, 1, 1)
         if self.use_face_contour:
             lmk_idx_and_bcoords = find_dynamic_lmk_idx_and_bcoords(
@@ -1552,7 +1638,9 @@ class SMPLXLayer(SMPLX):
                 [lmk_bary_coords.expand(batch_size, -1, -1), dyn_lmk_bary_coords], 1
             )
 
-        landmarks = vertices2landmarks(vertices, self.faces_tensor, lmk_faces_idx, lmk_bary_coords)
+        landmarks = vertices2landmarks(
+            vertices, self.faces_tensor, lmk_faces_idx, lmk_bary_coords
+        )
 
         # Add any extra joints that might be needed
         joints = self.vertex_joint_selector(vertices, joints)
@@ -1645,11 +1733,15 @@ class MANO(SMPL):
         if data_struct is None:
             # Load the model
             if osp.isdir(model_path):
-                model_fn = "MANO_{}.{ext}".format("RIGHT" if is_rhand else "LEFT", ext=ext)
+                model_fn = "MANO_{}.{ext}".format(
+                    "RIGHT" if is_rhand else "LEFT", ext=ext
+                )
                 mano_path = os.path.join(model_path, model_fn)
             else:
                 mano_path = model_path
-                self.is_rhand = True if "RIGHT" in os.path.basename(model_path) else False
+                self.is_rhand = (
+                    True if "RIGHT" in os.path.basename(model_path) else False
+                )
             assert osp.exists(mano_path), "Path {} does not exist!".format(mano_path)
 
             if ext == "pkl":
@@ -1691,7 +1783,9 @@ class MANO(SMPL):
         self.np_hand_components = hand_components
 
         if self.use_pca:
-            self.register_buffer("hand_components", torch.tensor(hand_components, dtype=dtype))
+            self.register_buffer(
+                "hand_components", torch.tensor(hand_components, dtype=dtype)
+            )
 
         if self.flat_hand_mean:
             hand_mean = np.zeros_like(data_struct.hands_mean)
@@ -1704,7 +1798,9 @@ class MANO(SMPL):
         hand_pose_dim = num_pca_comps if use_pca else 3 * self.NUM_HAND_JOINTS
         if create_hand_pose:
             if hand_pose is None:
-                default_hand_pose = torch.zeros([batch_size, hand_pose_dim], dtype=dtype)
+                default_hand_pose = torch.zeros(
+                    [batch_size, hand_pose_dim], dtype=dtype
+                )
             else:
                 default_hand_pose = torch.tensor(hand_pose, dtype=dtype)
 
@@ -1747,7 +1843,9 @@ class MANO(SMPL):
         """Forward pass for the MANO model"""
         # If no shape and pose parameters are passed along, then use the
         # ones from the module
-        global_orient = global_orient if global_orient is not None else self.global_orient
+        global_orient = (
+            global_orient if global_orient is not None else self.global_orient
+        )
         betas = betas if betas is not None else self.betas
         hand_pose = hand_pose if hand_pose is not None else self.hand_pose
 
@@ -1841,7 +1939,9 @@ class MANOLayer(MANO):
                 .contiguous()
             )
         if betas is None:
-            betas = torch.zeros([batch_size, self.num_betas], dtype=dtype, device=device)
+            betas = torch.zeros(
+                [batch_size, self.num_betas], dtype=dtype, device=device
+            )
         if transl is None:
             transl = torch.zeros([batch_size, 3], dtype=dtype, device=device)
 
@@ -2026,7 +2126,9 @@ class FLAME(SMPL):
         else:
             expr_start_idx = self.SHAPE_SPACE_DIM
             expr_end_idx = self.SHAPE_SPACE_DIM + num_expression_coeffs
-            num_expression_coeffs = min(num_expression_coeffs, self.EXPRESSION_SPACE_DIM)
+            num_expression_coeffs = min(
+                num_expression_coeffs, self.EXPRESSION_SPACE_DIM
+            )
 
         self._num_expression_coeffs = num_expression_coeffs
 
@@ -2051,24 +2153,36 @@ class FLAME(SMPL):
             landmarks_data = pickle.load(fp, encoding="latin1")
 
         lmk_faces_idx = landmarks_data["lmk_face_idx"].astype(np.int64)
-        self.register_buffer("lmk_faces_idx", torch.tensor(lmk_faces_idx, dtype=torch.long))
+        self.register_buffer(
+            "lmk_faces_idx", torch.tensor(lmk_faces_idx, dtype=torch.long)
+        )
         lmk_bary_coords = landmarks_data["lmk_b_coords"]
-        self.register_buffer("lmk_bary_coords", torch.tensor(lmk_bary_coords, dtype=dtype))
+        self.register_buffer(
+            "lmk_bary_coords", torch.tensor(lmk_bary_coords, dtype=dtype)
+        )
         if self.use_face_contour:
             face_contour_path = os.path.join(model_path, "flame_dynamic_embedding.npy")
-            contour_embeddings = np.load(face_contour_path, allow_pickle=True, encoding="latin1")[
-                ()
-            ]
+            contour_embeddings = np.load(
+                face_contour_path, allow_pickle=True, encoding="latin1"
+            )[()]
 
-            dynamic_lmk_faces_idx = np.array(contour_embeddings["lmk_face_idx"], dtype=np.int64)
-            dynamic_lmk_faces_idx = torch.tensor(dynamic_lmk_faces_idx, dtype=torch.long)
+            dynamic_lmk_faces_idx = np.array(
+                contour_embeddings["lmk_face_idx"], dtype=np.int64
+            )
+            dynamic_lmk_faces_idx = torch.tensor(
+                dynamic_lmk_faces_idx, dtype=torch.long
+            )
             self.register_buffer("dynamic_lmk_faces_idx", dynamic_lmk_faces_idx)
 
-            dynamic_lmk_b_coords = torch.tensor(contour_embeddings["lmk_b_coords"], dtype=dtype)
+            dynamic_lmk_b_coords = torch.tensor(
+                contour_embeddings["lmk_b_coords"], dtype=dtype
+            )
             self.register_buffer("dynamic_lmk_bary_coords", dynamic_lmk_b_coords)
 
             neck_kin_chain = find_joint_kin_chain(self.NECK_IDX, self.parents)
-            self.register_buffer("neck_kin_chain", torch.tensor(neck_kin_chain, dtype=torch.long))
+            self.register_buffer(
+                "neck_kin_chain", torch.tensor(neck_kin_chain, dtype=torch.long)
+            )
 
     @property
     def num_expression_coeffs(self):
@@ -2144,7 +2258,9 @@ class FLAME(SMPL):
 
         # If no shape and pose parameters are passed along, then use the
         # ones from the module
-        global_orient = global_orient if global_orient is not None else self.global_orient
+        global_orient = (
+            global_orient if global_orient is not None else self.global_orient
+        )
         jaw_pose = jaw_pose if jaw_pose is not None else self.jaw_pose
         neck_pose = neck_pose if neck_pose is not None else self.neck_pose
 
@@ -2159,7 +2275,9 @@ class FLAME(SMPL):
             if hasattr(self, "transl"):
                 transl = self.transl
 
-        full_pose = torch.cat([global_orient, neck_pose, jaw_pose, leye_pose, reye_pose], dim=1)
+        full_pose = torch.cat(
+            [global_orient, neck_pose, jaw_pose, leye_pose, reye_pose], dim=1
+        )
 
         batch_size = max(betas.shape[0], global_orient.shape[0], jaw_pose.shape[0])
         # Concatenate the shape and expression coefficients
@@ -2181,7 +2299,9 @@ class FLAME(SMPL):
             pose2rot=pose2rot,
         )
 
-        lmk_faces_idx = self.lmk_faces_idx.unsqueeze(dim=0).expand(batch_size, -1).contiguous()
+        lmk_faces_idx = (
+            self.lmk_faces_idx.unsqueeze(dim=0).expand(batch_size, -1).contiguous()
+        )
         lmk_bary_coords = self.lmk_bary_coords.unsqueeze(dim=0).repeat(batch_size, 1, 1)
         if self.use_face_contour:
             lmk_idx_and_bcoords = find_dynamic_lmk_idx_and_bcoords(
@@ -2198,7 +2318,9 @@ class FLAME(SMPL):
                 [lmk_bary_coords.expand(batch_size, -1, -1), dyn_lmk_bary_coords], 1
             )
 
-        landmarks = vertices2landmarks(vertices, self.faces_tensor, lmk_faces_idx, lmk_bary_coords)
+        landmarks = vertices2landmarks(
+            vertices, self.faces_tensor, lmk_faces_idx, lmk_bary_coords
+        )
 
         # Add any extra joints that might be needed
         joints = self.vertex_joint_selector(vertices, joints)
@@ -2331,7 +2453,9 @@ class FLAMELayer(FLAME):
                 .contiguous()
             )
         if betas is None:
-            betas = torch.zeros([batch_size, self.num_betas], dtype=dtype, device=device)
+            betas = torch.zeros(
+                [batch_size, self.num_betas], dtype=dtype, device=device
+            )
         if expression is None:
             expression = torch.zeros(
                 [batch_size, self.num_expression_coeffs], dtype=dtype, device=device
@@ -2339,7 +2463,9 @@ class FLAMELayer(FLAME):
         if transl is None:
             transl = torch.zeros([batch_size, 3], dtype=dtype, device=device)
 
-        full_pose = torch.cat([global_orient, neck_pose, jaw_pose, leye_pose, reye_pose], dim=1)
+        full_pose = torch.cat(
+            [global_orient, neck_pose, jaw_pose, leye_pose, reye_pose], dim=1
+        )
 
         shape_components = torch.cat([betas, expression], dim=-1)
         shapedirs = torch.cat([self.shapedirs, self.expr_dirs], dim=-1)
@@ -2356,7 +2482,9 @@ class FLAMELayer(FLAME):
             pose2rot=False,
         )
 
-        lmk_faces_idx = self.lmk_faces_idx.unsqueeze(dim=0).expand(batch_size, -1).contiguous()
+        lmk_faces_idx = (
+            self.lmk_faces_idx.unsqueeze(dim=0).expand(batch_size, -1).contiguous()
+        )
         lmk_bary_coords = self.lmk_bary_coords.unsqueeze(dim=0).repeat(batch_size, 1, 1)
         if self.use_face_contour:
             lmk_idx_and_bcoords = find_dynamic_lmk_idx_and_bcoords(
@@ -2373,7 +2501,9 @@ class FLAMELayer(FLAME):
                 [lmk_bary_coords.expand(batch_size, -1, -1), dyn_lmk_bary_coords], 1
             )
 
-        landmarks = vertices2landmarks(vertices, self.faces_tensor, lmk_faces_idx, lmk_bary_coords)
+        landmarks = vertices2landmarks(
+            vertices, self.faces_tensor, lmk_faces_idx, lmk_bary_coords
+        )
 
         # Add any extra joints that might be needed
         joints = self.vertex_joint_selector(vertices, joints)

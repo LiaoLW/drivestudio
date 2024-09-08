@@ -137,7 +137,7 @@ class SceneLidarSource(abc.ABC):
         aabb = torch.tensor([*aabb_min, *aabb_max])
         logger.info(f"[Lidar] Auto AABB from LiDAR: {aabb}")
         return aabb
-    
+
     @property
     def pts_xyz(self) -> Tensor:
         """
@@ -146,7 +146,7 @@ class SceneLidarSource(abc.ABC):
             shape: (num_lidar_points, 3)
         """
         return self.origins + self.directions * self.ranges
-    
+
     @property
     def num_points(self) -> int:
         """
@@ -238,7 +238,7 @@ class SceneLidarSource(abc.ABC):
             "lidar_mask": self.timesteps == time_idx,
             "lidar_flows": flows,
         }
-    
+
     def delete_invisible_pts(self) -> None:
         """
         Clear the unvisible points.

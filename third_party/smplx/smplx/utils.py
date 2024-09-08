@@ -99,9 +99,7 @@ def find_joint_kin_chain(joint_id, kinematic_tree):
     return kin_chain
 
 
-def to_tensor(
-        array: Union[Array, Tensor], dtype=torch.float32
-) -> Tensor:
+def to_tensor(array: Union[Array, Tensor], dtype=torch.float32) -> Tensor:
     if torch.is_tensor(array):
         return array
     else:
@@ -124,6 +122,7 @@ def rot_mat_to_euler(rot_mats):
     # Calculates rotation matrix to euler angles
     # Careful for extreme cases of eular angles like [0.0, pi, 0.0]
 
-    sy = torch.sqrt(rot_mats[:, 0, 0] * rot_mats[:, 0, 0] +
-                    rot_mats[:, 1, 0] * rot_mats[:, 1, 0])
+    sy = torch.sqrt(
+        rot_mats[:, 0, 0] * rot_mats[:, 0, 0] + rot_mats[:, 1, 0] * rot_mats[:, 1, 0]
+    )
     return torch.atan2(-rot_mats[:, 2, 0], sy)

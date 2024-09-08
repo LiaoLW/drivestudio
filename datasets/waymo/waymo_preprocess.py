@@ -26,7 +26,7 @@ from .waymo_utils import (
     parse_range_image_flow_and_camera_projection,
     convert_range_image_to_point_cloud_flow,
     project_vehicle_to_image,
-    get_ground_np
+    get_ground_np,
 )
 
 MOVEABLE_OBJECTS_IDS = [
@@ -51,6 +51,7 @@ WAYMO_DYNAMIC_CLASSES = ['Vehicle', 'Pedestrian', 'Cyclist']
 WAYMO_HUMAN_CLASSES = ['Pedestrian', 'Cyclist']
 WAYMO_VEHICLE_CLASSES = ['Vehicle']
 
+
 class WaymoProcessor(object):
     """Process Waymo dataset.
 
@@ -70,14 +71,7 @@ class WaymoProcessor(object):
         load_dir,
         save_dir,
         prefix,
-        process_keys=[
-            "images",
-            "lidar",
-            "calib",
-            "pose",
-            "dynamic_masks",
-            "objects"
-        ],
+        process_keys=["images", "lidar", "calib", "pose", "dynamic_masks", "objects"],
         process_id_list=None,
         workers=64,
     ):
@@ -157,12 +151,14 @@ class WaymoProcessor(object):
             if "dynamic_masks" in self.process_keys:
                 self.save_dynamic_mask(frame, file_idx, frame_idx, class_valid='all')
                 self.save_dynamic_mask(frame, file_idx, frame_idx, class_valid='human')
-                self.save_dynamic_mask(frame, file_idx, frame_idx, class_valid='vehicle')                
+                self.save_dynamic_mask(
+                    frame, file_idx, frame_idx, class_valid='vehicle'
+                )
             if frame_idx == 0:
                 self.save_interested_labels(frame, file_idx)
         if "objects" in self.process_keys:
             instances_info, frame_instances = self.save_objects(dataset)
-            
+
             # Save instances info and frame instances
             object_info_dir = f"{self.save_dir}/{str(file_idx).zfill(3)}/instances"
             with open(f"{object_info_dir}/instances_info.json", "w") as fp:
@@ -349,10 +345,12 @@ class WaymoProcessor(object):
             VALID_CLASSES = WAYMO_HUMAN_CLASSES
         elif class_valid == 'vehicle':
             VALID_CLASSES = WAYMO_VEHICLE_CLASSES
-        mask_dir = f"{self.save_dir}/{str(file_idx).zfill(3)}/dynamic_masks/{class_valid}"
+        mask_dir = (
+            f"{self.save_dir}/{str(file_idx).zfill(3)}/dynamic_masks/{class_valid}"
+        )
         if not os.path.exists(mask_dir):
             os.makedirs(mask_dir)
-            
+
         """Parse and save the segmentation data.
 
         Args:
@@ -378,7 +376,7 @@ class WaymoProcessor(object):
             for label in frame.laser_labels:
                 # camera_synced_box is not available for the data with flow.
                 # box = label.camera_synced_box
-                
+
                 class_name = WAYMO_CLASSES[label.type]
                 if class_name not in VALID_CLASSES:
                     continue
@@ -450,27 +448,29 @@ class WaymoProcessor(object):
             # thresholding, use 1.0 m/s to determine whether the pixel is moving
             dynamic_mask = np.clip((dynamic_mask > 1.0) * 255, 0, 255).astype(np.uint8)
             dynamic_mask = Image.fromarray(dynamic_mask, "L")
-            dynamic_mask_path = os.path.join(mask_dir, f"{str(frame_idx).zfill(3)}_{str(img.name - 1)}.png")
+            dynamic_mask_path = os.path.join(
+                mask_dir, f"{str(frame_idx).zfill(3)}_{str(img.name - 1)}.png"
+            )
             dynamic_mask.save(dynamic_mask_path)
-            
+
     def save_objects(self, dataset):
         """Parse and save the ground truth bounding boxes."""
         instances_info, frame_instances = {}, {}
-        
+
         for frame_idx, data in enumerate(dataset):
             frame = dataset_pb2.Frame()
             frame.ParseFromString(bytearray(data.numpy()))
-            
+
             frame_instances[frame_idx] = []
             for l in frame.laser_labels:
                 frame_pose = np.array(frame.pose.transform).reshape(4, 4)
-                
+
                 str_id = str(l.id)
                 if WAYMO_CLASSES[l.type] not in WAYMO_DYNAMIC_CLASSES:
                     continue
-                
+
                 frame_instances[frame_idx].append(str_id)
-                
+
                 if str_id not in instances_info:
                     instances_info[str_id] = dict(
                         id=l.id,
@@ -480,44 +480,48 @@ class WaymoProcessor(object):
                             "frame_idx": [],
                             "obj_to_world": [],
                             "box_size": [],
-                        }
+                        },
                     )
-                
+
                 # https://github.com/waymo-research/waymo-open-dataset/blob/master/waymo_open_dataset/label.proto
                 box = l.box
-                
+
                 # Box coordinates in vehicle frame.
                 tx, ty, tz = box.center_x, box.center_y, box.center_z
-                
+
                 # The heading of the bounding box (in radians).  The heading is the angle
                 #   required to rotate +x to the surface normal of the box front face. It is
                 #   normalized to [-pi, pi).
                 c = np.math.cos(box.heading)
                 s = np.math.sin(box.heading)
-                
+
                 # [object to vehicle]
                 # https://github.com/gdlg/simple-waymo-open-dataset-reader/blob/d488196b3ded6574c32fad391467863b948dfd8e/simple_waymo_open_dataset_reader/utils.py#L32
-                o2v = np.array([
-                    [ c, -s,  0, tx],
-                    [ s,  c,  0, ty],
-                    [ 0,  0,  1, tz],
-                    [ 0,  0,  0,  1]])
-                
+                o2v = np.array(
+                    [[c, -s, 0, tx], [s, c, 0, ty], [0, 0, 1, tz], [0, 0, 0, 1]]
+                )
+
                 # [object to ENU world]
-                pose = frame_pose @ o2v # o2w = v2w @ o2v
-                
+                pose = frame_pose @ o2v  # o2w = v2w @ o2v
+
                 # difficulty = l.detection_difficulty_level
-                
+
                 # tracking_difficulty = l.tracking_difficulty_level
-                
+
                 # Dimensions of the box. length: dim x. width: dim y. height: dim z.
                 # length: dim_x: along heading; dim_y: verticle to heading; dim_z: verticle up
                 dimension = [box.length, box.width, box.height]
-                
-                instances_info[str_id]['frame_annotations']['frame_idx'].append(frame_idx)
-                instances_info[str_id]['frame_annotations']['obj_to_world'].append(pose.tolist())
-                instances_info[str_id]['frame_annotations']['box_size'].append(dimension)
-                
+
+                instances_info[str_id]['frame_annotations']['frame_idx'].append(
+                    frame_idx
+                )
+                instances_info[str_id]['frame_annotations']['obj_to_world'].append(
+                    pose.tolist()
+                )
+                instances_info[str_id]['frame_annotations']['box_size'].append(
+                    dimension
+                )
+
         # Correct ID mapping
         id_map = {}
         for i, (k, v) in enumerate(instances_info.items()):
@@ -544,15 +548,27 @@ class WaymoProcessor(object):
         for i in id_list:
             if "images" in self.process_keys:
                 os.makedirs(f"{self.save_dir}/{str(i).zfill(3)}/images", exist_ok=True)
-                os.makedirs(f"{self.save_dir}/{str(i).zfill(3)}/sky_masks", exist_ok=True)
+                os.makedirs(
+                    f"{self.save_dir}/{str(i).zfill(3)}/sky_masks", exist_ok=True
+                )
             if "calib" in self.process_keys:
-                os.makedirs(f"{self.save_dir}/{str(i).zfill(3)}/extrinsics", exist_ok=True)
-                os.makedirs(f"{self.save_dir}/{str(i).zfill(3)}/intrinsics", exist_ok=True)
+                os.makedirs(
+                    f"{self.save_dir}/{str(i).zfill(3)}/extrinsics", exist_ok=True
+                )
+                os.makedirs(
+                    f"{self.save_dir}/{str(i).zfill(3)}/intrinsics", exist_ok=True
+                )
             if "pose" in self.process_keys:
-                os.makedirs(f"{self.save_dir}/{str(i).zfill(3)}/ego_pose", exist_ok=True)
+                os.makedirs(
+                    f"{self.save_dir}/{str(i).zfill(3)}/ego_pose", exist_ok=True
+                )
             if "lidar" in self.process_keys:
                 os.makedirs(f"{self.save_dir}/{str(i).zfill(3)}/lidar", exist_ok=True)
             if "dynamic_masks" in self.process_keys:
-                os.makedirs(f"{self.save_dir}/{str(i).zfill(3)}/dynamic_masks", exist_ok=True)
+                os.makedirs(
+                    f"{self.save_dir}/{str(i).zfill(3)}/dynamic_masks", exist_ok=True
+                )
             if "objects" in self.process_keys:
-                os.makedirs(f"{self.save_dir}/{str(i).zfill(3)}/instances", exist_ok=True)
+                os.makedirs(
+                    f"{self.save_dir}/{str(i).zfill(3)}/instances", exist_ok=True
+                )

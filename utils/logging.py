@@ -16,6 +16,7 @@ from utils.misc import get_global_rank, is_enabled, is_main_process
 
 logger = logging.getLogger()
 
+
 class MetricLogger(object):
     def __init__(self, delimiter="\t", output_file=None):
         self.meters = defaultdict(SmoothedValue)

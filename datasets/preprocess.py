@@ -151,19 +151,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--process_keys",
         nargs="+",
-        default=[
-            "images",
-            "lidar",
-            "calib",
-            "pose",
-            "dynamic_masks",
-            "objects"
-        ],
+        default=["images", "lidar", "calib", "pose", "dynamic_masks", "objects"],
     )
     args = parser.parse_args()
     if args.dataset != 'nuscenes' and args.interpolate_N > 0:
         parser.error("interpolate_N > 0 is only allowed when dataset is 'nuscenes'")
-    
+
     if args.scene_ids is not None:
         scene_ids_list = args.scene_ids
     elif args.split_file is not None:
@@ -175,7 +168,7 @@ if __name__ == "__main__":
 
     if args.dataset == "waymo":
         from datasets.waymo.waymo_preprocess import WaymoProcessor
-        
+
         scene_ids_list = [int(scene_id) for scene_id in scene_ids_list]
         dataset_processor = WaymoProcessor(
             load_dir=args.data_root,
@@ -187,7 +180,7 @@ if __name__ == "__main__":
         )
     elif args.dataset == "pandaset":
         from datasets.pandaset.pandaset_preprocess import PandaSetProcessor
-        
+
         scene_ids_list = [str(scene_id).zfill(3) for scene_id in scene_ids_list]
         dataset_processor = PandaSetProcessor(
             load_dir=args.data_root,
@@ -198,7 +191,7 @@ if __name__ == "__main__":
         )
     elif args.dataset == "argoverse":
         from datasets.argoverse.argoverse_preprocess import ArgoVerseProcessor
-        
+
         scene_ids_list = [int(scene_id) for scene_id in scene_ids_list]
         dataset_processor = ArgoVerseProcessor(
             load_dir=args.data_root,
@@ -209,7 +202,7 @@ if __name__ == "__main__":
         )
     elif args.dataset == "nuscenes":
         from datasets.nuscenes.nuscenes_preprocess import NuScenesProcessor
-        
+
         scene_ids_list = [int(scene_id) for scene_id in scene_ids_list]
         dataset_processor = NuScenesProcessor(
             load_dir=args.data_root,
@@ -222,7 +215,7 @@ if __name__ == "__main__":
         )
     elif args.dataset == "kitti":
         from datasets.kitti.kitti_preprocess import KittiProcessor
-        
+
         dataset_processor = KittiProcessor(
             load_dir=args.data_root,
             save_dir=args.target_dir,
@@ -233,7 +226,7 @@ if __name__ == "__main__":
         )
     elif args.dataset == "nuplan":
         from datasets.nuplan.nuplan_preprocess import NuPlanProcessor
-        
+
         dataset_processor = NuPlanProcessor(
             load_dir=args.data_root,
             save_dir=args.target_dir,
@@ -245,7 +238,9 @@ if __name__ == "__main__":
             workers=args.workers,
         )
     else:
-        raise ValueError(f"Unknown dataset {args.dataset}, please choose from waymo, pandaset, argoverse, nuscenes, kitti, nuplan")
+        raise ValueError(
+            f"Unknown dataset {args.dataset}, please choose from waymo, pandaset, argoverse, nuscenes, kitti, nuplan"
+        )
 
     if args.scene_ids is not None and args.workers == 1:
         for scene_id in args.scene_ids:

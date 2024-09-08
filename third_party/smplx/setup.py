@@ -56,23 +56,25 @@ pyrender_reqs = ['pyrender>=0.1.23', 'trimesh>=2.37.6', 'shapely']
 matplotlib_reqs = ['matplotlib']
 open3d_reqs = ['open3d-python']
 
-setup(name=NAME,
-      version=about['__version__'],
-      description=DESCRIPTION,
-      long_description=long_description,
-      long_description_content_type='text/markdown',
-      author=AUTHOR,
-      author_email=EMAIL,
-      python_requires=REQUIRES_PYTHON,
-      url=URL,
-      install_requires=[
-          'numpy>=1.16.2',
-          'torch>=1.0.1.post2',
-      ],
-      extras_require={
-          'pyrender': pyrender_reqs,
-          'open3d': open3d_reqs,
-          'matplotlib': matplotlib_reqs,
-          'all': pyrender_reqs + matplotlib_reqs + open3d_reqs
-      },
-      packages=['smplx'])
+setup(
+    name=NAME,
+    version=about['__version__'],
+    description=DESCRIPTION,
+    long_description=long_description,
+    long_description_content_type='text/markdown',
+    author=AUTHOR,
+    author_email=EMAIL,
+    python_requires=REQUIRES_PYTHON,
+    url=URL,
+    install_requires=[
+        'numpy>=1.16.2',
+        'torch>=1.0.1.post2',
+    ],
+    extras_require={
+        'pyrender': pyrender_reqs,
+        'open3d': open3d_reqs,
+        'matplotlib': matplotlib_reqs,
+        'all': pyrender_reqs + matplotlib_reqs + open3d_reqs,
+    },
+    packages=['smplx'],
+)

@@ -56,5 +56,7 @@ def timer_decorator(sync=False, name=''):
             elapsed.append(te - ts)
             logger.info(f'[{name}]: {np.mean(elapsed):.3f}')
             return result
+
         return timed
+
     return wrapper

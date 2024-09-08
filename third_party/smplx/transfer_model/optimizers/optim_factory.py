@@ -26,11 +26,8 @@ from torchtrustncg import TrustRegion
 Tensor = NewType('Tensor', torch.Tensor)
 
 
-def build_optimizer(parameters: List[Tensor],
-                    optim_cfg: Dict
-                    ) -> Dict:
-    ''' Creates the optimizer
-    '''
+def build_optimizer(parameters: List[Tensor], optim_cfg: Dict) -> Dict:
+    '''Creates the optimizer'''
     optim_type = optim_cfg.get('type', 'sgd')
     logger.info(f'Building: {optim_type.title()}')
 
@@ -46,8 +43,7 @@ def build_optimizer(parameters: List[Tensor],
         optimizer = optim.LBFGS(parameters, **optim_cfg.get('lbfgs', {}))
         create_graph = False
     elif optim_type == 'trust_ncg' or optim_type == 'trust-ncg':
-        optimizer = TrustRegion(
-            parameters, **optim_cfg.get('trust_ncg', {}))
+        optimizer = TrustRegion(parameters, **optim_cfg.get('trust_ncg', {}))
         create_graph = True
     elif optim_type == 'rmsprop':
         optimizer = optim.RMSprop(parameters, **optim_cfg.get('rmsprop', {}))
@@ -60,13 +56,11 @@ def build_optimizer(parameters: List[Tensor],
     return {'optimizer': optimizer, 'create_graph': create_graph}
 
 
-def build_scheduler(optimizer, sched_type='exp',
-                    lr_lambda=0.1, **kwargs):
+def build_scheduler(optimizer, sched_type='exp', lr_lambda=0.1, **kwargs):
     if lr_lambda <= 0.0:
         return None
 
     if sched_type == 'exp':
         return optim.lr_scheduler.ExponentialLR(optimizer, lr_lambda)
     else:
-        raise ValueError('Unknown learning rate' +
-                         ' scheduler: '.format(sched_type))
+        raise ValueError('Unknown learning rate' + ' scheduler: '.format(sched_type))

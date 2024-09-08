@@ -3,6 +3,7 @@ import torch
 
 from .pixel_source import ScenePixelSource
 
+
 class SplitWrapper(torch.utils.data.Dataset):
 
     # a sufficiently large number to make sure we don't run out of data
@@ -28,18 +29,18 @@ class SplitWrapper(torch.utils.data.Dataset):
 
     def next(self, camera_downscale) -> Tuple[dict, dict]:
         assert self.split == "train", "Only train split supports next()"
-        
+
         img_idx = self.datasource.propose_training_image(
             candidate_indices=self.split_indices
         )
-        
+
         downscale_factor = 1 / camera_downscale * self.datasource.downscale_factor
         self.datasource.update_downscale_factor(downscale_factor)
         image_infos, cam_infos = self.datasource.get_image(img_idx)
         self.datasource.reset_downscale_factor()
-        
+
         return image_infos, cam_infos
-    
+
     def __getitem__(self, idx) -> dict:
         return self.get_image(idx, camera_downscale=1.0)
 

@@ -41,14 +41,21 @@ def main() -> None:
     else:
         device = torch.device('cpu')
         if exp_cfg["use_cuda"]:
-            if input("use_cuda=True and GPU is not available, using CPU instead,"
-                     " would you like to continue? (y/n)") != "y":
+            if (
+                input(
+                    "use_cuda=True and GPU is not available, using CPU instead,"
+                    " would you like to continue? (y/n)"
+                )
+                != "y"
+            ):
                 sys.exit(3)
 
     logger.remove()
     logger.add(
-        lambda x: tqdm.write(x, end=''), level=exp_cfg.logger_level.upper(),
-        colorize=True)
+        lambda x: tqdm.write(x, end=''),
+        level=exp_cfg.logger_level.upper(),
+        colorize=True,
+    )
 
     output_folder = osp.expanduser(osp.expandvars(exp_cfg.output_folder))
     logger.info(f'Saving output to: {output_folder}')
@@ -60,8 +67,7 @@ def main() -> None:
     body_model = body_model.to(device=device)
 
     deformation_transfer_path = exp_cfg.get('deformation_transfer_path', '')
-    def_matrix = read_deformation_transfer(
-        deformation_transfer_path, device=device)
+    def_matrix = read_deformation_transfer(deformation_transfer_path, device=device)
 
     # Read mask for valid vertex ids
     mask_ids_fname = osp.expandvars(exp_cfg.mask_ids_fname)
@@ -81,22 +87,18 @@ def main() -> None:
         for key in batch:
             if torch.is_tensor(batch[key]):
                 batch[key] = batch[key].to(device=device)
-        var_dict = run_fitting(
-            exp_cfg, batch, body_model, def_matrix, mask_ids)
+        var_dict = run_fitting(exp_cfg, batch, body_model, def_matrix, mask_ids)
         paths = batch['paths']
 
         for ii, path in enumerate(paths):
             _, fname = osp.split(path)
 
-            output_path = osp.join(
-                output_folder, f'{osp.splitext(fname)[0]}.pkl')
+            output_path = osp.join(output_folder, f'{osp.splitext(fname)[0]}.pkl')
             with open(output_path, 'wb') as f:
                 pickle.dump(var_dict, f)
 
-            output_path = osp.join(
-                output_folder, f'{osp.splitext(fname)[0]}.obj')
-            mesh = np_mesh_to_o3d(
-                var_dict['vertices'][ii], var_dict['faces'])
+            output_path = osp.join(output_folder, f'{osp.splitext(fname)[0]}.obj')
+            mesh = np_mesh_to_o3d(var_dict['vertices'][ii], var_dict['faces'])
             o3d.io.write_triangle_mesh(output_path, mesh)
 
 

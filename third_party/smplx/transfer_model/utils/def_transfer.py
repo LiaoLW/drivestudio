@@ -30,15 +30,13 @@ def read_deformation_transfer(
     device=None,
     use_normal: bool = False,
 ) -> Tensor:
-    ''' Reads a deformation transfer
-    '''
+    '''Reads a deformation transfer'''
     if device is None:
         device = torch.device('cpu')
     assert osp.exists(deformation_transfer_path), (
-        'Deformation transfer path does not exist:'
-        f' {deformation_transfer_path}')
-    logger.info(
-        f'Loading deformation transfer from: {deformation_transfer_path}')
+        'Deformation transfer path does not exist:' f' {deformation_transfer_path}'
+    )
+    logger.info(f'Loading deformation transfer from: {deformation_transfer_path}')
     # Read the deformation transfer matrix
     with open(deformation_transfer_path, 'rb') as f:
         def_transfer_setup = pickle.load(f, encoding='latin1')
@@ -61,13 +59,9 @@ def read_deformation_transfer(
 
 
 def apply_deformation_transfer(
-    def_matrix: Tensor,
-    vertices: Tensor,
-    faces: Tensor,
-    use_normals=False
+    def_matrix: Tensor, vertices: Tensor, faces: Tensor, use_normals=False
 ) -> Tensor:
-    ''' Applies the deformation transfer on the given meshes
-    '''
+    '''Applies the deformation transfer on the given meshes'''
     if use_normals:
         raise NotImplementedError
     else:
