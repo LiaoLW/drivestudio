@@ -186,8 +186,9 @@ class BasicTrainer(nn.Module):
         groups = []
         lr_schedulers = {}
         for params_name, params in self.param_groups.items():
-            class_name = params_name.split("#")[0]
-            component_name = params_name.split("#")[1]
+            params_name_split = params_name.split("#")
+            class_name = params_name_split[0]
+            component_name = params_name_split[1]
             class_cfg = self.model_config.get(class_name)
             class_optim_cfg = class_cfg["optim"]
 
@@ -538,7 +539,7 @@ class BasicTrainer(nn.Module):
 
         # affine transformation
         outputs["rgb"] = self.affine_transformation(
-            outputs["rgb_gaussians"] + outputs["rgb_sky"] * (1.0 - outputs["opacity"]),
+            outputs["rgb_gaussians"] + outputs["rgb_sky_blend"],
             image_infos,
         )
 

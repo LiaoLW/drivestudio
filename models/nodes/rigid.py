@@ -8,6 +8,7 @@ from torch.nn import Parameter
 from models.modules import ConditionalDeformNetwork
 from models.gaussians.basics import *
 from models.gaussians.vanilla import VanillaGaussians
+from utils.geometry import cartesian_to_rotation_matrix
 
 logger = logging.getLogger()
 
@@ -58,7 +59,11 @@ class RigidNodes(VanillaGaussians):
         instances_size = []
         instances_fv = []
         point_ids = []
+        self.global2model_id_table = {}
+        self.model2global_id_table = []
         for id_in_model, (id_in_dataset, v) in enumerate(instance_pts_dict.items()):
+            self.global2model_id_table[id_in_dataset] = id_in_model
+            self.model2global_id_table.append(id_in_dataset)
             init_means.append(v["pts"])
             init_colors.append(v["colors"])
             instances_pose.append(v["poses"].unsqueeze(1))
@@ -79,6 +84,7 @@ class RigidNodes(VanillaGaussians):
             self.device
         )  # (num_frame, num_instances)
         self.point_ids = torch.cat(point_ids, dim=0).to(self.device)
+        self.instances_pose = instances_pose
         instances_quats = self.get_instances_quats(instances_pose)
         instances_trans = instances_pose[..., :3, 3]
 
@@ -412,6 +418,7 @@ class RigidNodes(VanillaGaussians):
             self.cur_frame - 1 > 0 and self.cur_frame + 1 < self.num_frames
         ):
             # use the previous and next frame to interpolate the pose
+            # quaternion interpolation
             _quats_prev_frame = self.instances_quats[self.cur_frame - 1]
             _quats_next_frame = self.instances_quats[self.cur_frame + 1]
             _quats_cur_frame = self.instances_quats[self.cur_frame]
@@ -424,16 +431,7 @@ class RigidNodes(VanillaGaussians):
             quats_cur_frame = torch.where(
                 inter_valid_mask[:, None], interpolated_quats, _quats_cur_frame
             )
-        else:
-            quats_cur_frame = self.instances_quats[self.cur_frame]  # (num_instances, 4)
-        rot_cur_frame = quat_to_rotmat(
-            self.quat_act(quats_cur_frame)
-        )  # (num_instances, 3, 3)
-        rot_per_pts = rot_cur_frame[self.point_ids[..., 0]]  # (num_points, 3, 3)
-
-        if self.in_test_set and (
-            self.cur_frame - 1 > 0 and self.cur_frame + 1 < self.num_frames
-        ):
+            # transition interpolation
             _prev_ins_trans = self.instances_trans[self.cur_frame - 1]
             _next_ins_trans = self.instances_trans[self.cur_frame + 1]
             _cur_ins_trans = self.instances_trans[self.cur_frame]
@@ -447,7 +445,12 @@ class RigidNodes(VanillaGaussians):
                 inter_valid_mask[:, None], interpolated_trans, _cur_ins_trans
             )
         else:
+            quats_cur_frame = self.instances_quats[self.cur_frame]  # (num_instances, 4)
             trans_cur_frame = self.instances_trans[self.cur_frame]  # (num_instances, 3)
+        rot_cur_frame = quat_to_rotmat(
+            self.quat_act(quats_cur_frame)
+        )  # (num_instances, 3, 3)
+        rot_per_pts = rot_cur_frame[self.point_ids[..., 0]]  # (num_points, 3, 3)
         trans_per_pts = trans_cur_frame[self.point_ids[..., 0]]
 
         # transform the means to world space
@@ -477,29 +480,20 @@ class RigidNodes(VanillaGaussians):
         world_means = self.transform_means(self._means)
         world_quats = self.transform_quats(self._quats)
 
-        # get colors of gaussians
-        colors = torch.cat((self._features_dc[:, None, :], self._features_rest), dim=1)
-        if self.sh_degree > 0:
-            viewdirs = world_means.detach() - cam.camtoworlds.data[..., :3, 3]  # (N, 3)
-            viewdirs = viewdirs / viewdirs.norm(dim=-1, keepdim=True)
-            n = min(self.step // self.ctrl_cfg.sh_degree_interval, self.sh_degree)
-            rgbs = spherical_harmonics(n, viewdirs, colors)
-            rgbs = torch.clamp(rgbs + 0.5, 0.0, 1.0)
-        else:
-            rgbs = torch.sigmoid(colors[:, 0, :])
+        rgbs = self.get_colors(cam)
 
         valid_mask = self.get_pts_valid_mask()
 
         activated_opacities = self.get_opacity * valid_mask.float().unsqueeze(-1)
         activated_scales = self.get_scaling
         activated_rotations = self.quat_act(world_quats)
-        actovated_colors = rgbs
+        activated_colors = rgbs
 
         # collect gaussians information
         gs_dict = dict(
             _means=world_means[filter_mask],
             _opacities=activated_opacities[filter_mask],
-            _rgbs=actovated_colors[filter_mask],
+            _rgbs=activated_colors[filter_mask],
             _scales=activated_scales[filter_mask],
             _quats=activated_rotations[filter_mask],
         )
@@ -701,3 +695,16 @@ class RigidNodes(VanillaGaussians):
             "positions": means[mask],
             "colors": direct_color[mask],
         }
+
+    @torch.no_grad()
+    def update_agent_pose(self, ins_id: str, trajectory: torch.Tensor) -> None:
+        """
+        ins_id: agent id, str
+        trajectory: (num_frame, 4), (x, y, z, yaw)
+        """
+        # self.instances_quats = Parameter(
+        #     self.quat_act(self.get_instances_quats(self.instances_pose))
+        # )
+        reset_quats = torch.zeros_like(self.instances_quats)
+        reset_quats[..., 0] = 1.0
+        self.instances_quats = Parameter(reset_quats)

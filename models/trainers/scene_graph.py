@@ -69,6 +69,67 @@ class MultiTrainer(BasicTrainer):
             if hasattr(model, 'set_bbox'):
                 model.set_bbox(self.aabb)
 
+    def safe_init_background(
+        self,
+        model_cfg: dict,
+        model: torch.nn.Module,
+        dataset: DrivingDataset,
+        instance_pts_dict: Dict[str, Dict[str, torch.Tensor]],
+    ) -> None:
+        # ------ initialize gaussians ------
+        init_cfg = model_cfg.pop("init")
+        # sample points from the lidar point clouds
+        if init_cfg.get("from_lidar", None) is not None:
+            sampled_pts, sampled_color, sampled_time = dataset.get_lidar_samples(
+                **init_cfg.from_lidar, device=self.device
+            )
+        else:
+            sampled_pts, sampled_color, sampled_time = (
+                torch.empty(0, 3).to(self.device),
+                torch.empty(0, 3).to(self.device),
+                None,
+            )
+
+        random_pts = []
+        num_near_pts = init_cfg.get("near_randoms", 0)
+        if num_near_pts > 0:  # uniformly sample points inside the scene's sphere
+            num_near_pts *= 3  # since some invisible points will be filtered out
+            random_pts.append(uniform_sample_sphere(num_near_pts, self.device))
+        num_far_pts = init_cfg.get("far_randoms", 0)
+        if num_far_pts > 0:  # inverse distances uniformly from (0, 1 / scene_radius)
+            num_far_pts *= 3
+            random_pts.append(
+                uniform_sample_sphere(num_far_pts, self.device, inverse=True)
+            )
+
+        if num_near_pts + num_far_pts > 0:
+            random_pts = torch.cat(random_pts, dim=0)
+            random_pts = random_pts * self.scene_radius + self.scene_origin
+            visible_mask = dataset.check_pts_visibility(random_pts)
+            valid_pts = random_pts[visible_mask]
+
+            sampled_pts = torch.cat([sampled_pts, valid_pts], dim=0)
+            sampled_color = torch.cat(
+                [
+                    sampled_color,
+                    torch.rand(
+                        valid_pts.shape,
+                    ).to(self.device),
+                ],
+                dim=0,
+            )
+
+        processed_init_pts = dataset.filter_pts_in_boxes(
+            seed_pts=sampled_pts,
+            seed_colors=sampled_color,
+            valid_instances_dict=instance_pts_dict,
+        )
+
+        model.create_from_pcd(
+            init_means=processed_init_pts["pts"],
+            init_colors=processed_init_pts["colors"],
+        )
+
     def safe_init_models(
         self,
         model: torch.nn.Module,
@@ -76,9 +137,9 @@ class MultiTrainer(BasicTrainer):
     ) -> None:
         if len(instance_pts_dict.keys()) > 0:
             model.create_from_pcd(instance_pts_dict=instance_pts_dict)
-            return False
-        else:
             return True
+        else:
+            return False
 
     def init_gaussians_from_dataset(
         self,
@@ -88,12 +149,12 @@ class MultiTrainer(BasicTrainer):
         rigidnode_pts_dict, deformnode_pts_dict, smplnode_pts_dict = {}, {}, {}
         if "RigidNodes" in self.model_config:
             rigidnode_pts_dict = dataset.get_init_objects(
-                cur_node_type='RigidNodes', **self.model_config["RigidNodes"]["init"]
+                cur_node_type="RigidNodes", **self.model_config["RigidNodes"]["init"]
             )
 
         if "DeformableNodes" in self.model_config:
             deformnode_pts_dict = dataset.get_init_objects(
-                cur_node_type='DeformableNodes',
+                cur_node_type="DeformableNodes",
                 exclude_smpl="SMPLNodes" in self.model_config,
                 **self.model_config["DeformableNodes"]["init"],
             )
@@ -117,86 +178,31 @@ class MultiTrainer(BasicTrainer):
             model_cfg = self.model_config[class_name]
             model = self.models[class_name]
 
-            empty = False
-            if class_name == 'Background':
-                # ------ initialize gaussians ------
-                init_cfg = model_cfg.pop('init')
-                # sample points from the lidar point clouds
-                if init_cfg.get("from_lidar", None) is not None:
-                    sampled_pts, sampled_color, sampled_time = (
-                        dataset.get_lidar_samples(
-                            **init_cfg.from_lidar, device=self.device
-                        )
-                    )
-                else:
-                    sampled_pts, sampled_color, sampled_time = (
-                        torch.empty(0, 3).to(self.device),
-                        torch.empty(0, 3).to(self.device),
-                        None,
-                    )
-
-                random_pts = []
-                num_near_pts = init_cfg.get('near_randoms', 0)
-                if (
-                    num_near_pts > 0
-                ):  # uniformly sample points inside the scene's sphere
-                    num_near_pts *= (
-                        3  # since some invisible points will be filtered out
-                    )
-                    random_pts.append(uniform_sample_sphere(num_near_pts, self.device))
-                num_far_pts = init_cfg.get('far_randoms', 0)
-                if (
-                    num_far_pts > 0
-                ):  # inverse distances uniformly from (0, 1 / scene_radius)
-                    num_far_pts *= 3
-                    random_pts.append(
-                        uniform_sample_sphere(num_far_pts, self.device, inverse=True)
-                    )
-
-                if num_near_pts + num_far_pts > 0:
-                    random_pts = torch.cat(random_pts, dim=0)
-                    random_pts = random_pts * self.scene_radius + self.scene_origin
-                    visible_mask = dataset.check_pts_visibility(random_pts)
-                    valid_pts = random_pts[visible_mask]
-
-                    sampled_pts = torch.cat([sampled_pts, valid_pts], dim=0)
-                    sampled_color = torch.cat(
-                        [
-                            sampled_color,
-                            torch.rand(
-                                valid_pts.shape,
-                            ).to(self.device),
-                        ],
-                        dim=0,
-                    )
-
-                processed_init_pts = dataset.filter_pts_in_boxes(
-                    seed_pts=sampled_pts,
-                    seed_colors=sampled_color,
-                    valid_instances_dict=allnode_pts_dict,
-                )
-
-                model.create_from_pcd(
-                    init_means=processed_init_pts["pts"],
-                    init_colors=processed_init_pts["colors"],
+            success = True
+            if class_name == "Background":
+                self.safe_init_background(
+                    model_cfg=model_cfg,
+                    model=model,
+                    dataset=dataset,
+                    instance_pts_dict=allnode_pts_dict,
                 )
 
             if class_name == 'RigidNodes':
-                empty = self.safe_init_models(
+                success = self.safe_init_models(
                     model=model, instance_pts_dict=rigidnode_pts_dict
                 )
 
             if class_name == 'DeformableNodes':
-                empty = self.safe_init_models(
+                success = self.safe_init_models(
                     model=model, instance_pts_dict=deformnode_pts_dict
                 )
 
             if class_name == 'SMPLNodes':
-                empty = self.safe_init_models(
+                success = self.safe_init_models(
                     model=model, instance_pts_dict=smplnode_pts_dict
                 )
 
-            if empty:
+            if not success:
                 empty_classes.append(class_name)
                 logger.warning(
                     f"No points for {class_name} found, will remove the model"

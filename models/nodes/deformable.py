@@ -86,16 +86,7 @@ class DeformableNodes(RigidNodes):
         else:
             activated_scales = self.get_scaling
 
-        # get colors of gaussians
-        colors = torch.cat((self._features_dc[:, None, :], self._features_rest), dim=1)
-        if self.sh_degree > 0:
-            viewdirs = world_means.detach() - cam.camtoworlds.data[..., :3, 3]  # (N, 3)
-            viewdirs = viewdirs / viewdirs.norm(dim=-1, keepdim=True)
-            n = min(self.step // self.ctrl_cfg.sh_degree_interval, self.sh_degree)
-            rgbs = spherical_harmonics(n, viewdirs, colors)
-            rgbs = torch.clamp(rgbs + 0.5, 0.0, 1.0)
-        else:
-            rgbs = torch.sigmoid(colors[:, 0, :])
+        rgbs = self.get_colors(cam)
 
         valid_mask = self.get_pts_valid_mask()
 

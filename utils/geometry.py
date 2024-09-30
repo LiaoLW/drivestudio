@@ -111,3 +111,40 @@ def rotation_6d_to_matrix(d6: Tensor) -> Tensor:
     b2 = F.normalize(b2, dim=-1)
     b3 = torch.cross(b1, b2, dim=-1)
     return torch.stack((b1, b2, b3), dim=-2)
+
+
+def cartesian_to_rotation_matrix(heading: Tensor) -> Tensor:
+    """
+    Convert roll, pitch, yaw angles to rotation matrix.
+    Args:
+        roll: rotation around x-axis
+        pitch: rotation around y-axis
+        yaw: rotation around z-axis
+
+    Returns:
+        rotation matrix of size (3, 3)
+    """
+    assert heading.shape == (3,), "heading must be tensor of shape(3, )"
+    R_x = torch.tensor(
+        [
+            [1, 0, 0],
+            [0, torch.cos(heading[0]), -torch.sin(heading[0])],
+            [0, torch.sin(heading[0]), torch.cos(heading[0])],
+        ]
+    )
+    R_y = torch.tensor(
+        [
+            [torch.cos(heading[1]), 0, torch.sin(heading[1])],
+            [0, 1, 0],
+            [-torch.sin(heading[1]), 0, torch.cos(heading[1])],
+        ]
+    )
+    R_z = torch.tensor(
+        [
+            [torch.cos(heading[2]), -torch.sin(heading[2]), 0],
+            [torch.sin(heading[2]), torch.cos(heading[2]), 0],
+            [0, 0, 1],
+        ]
+    )
+    R = torch.matmul(R_z, torch.matmul(R_y, R_x))
+    return R

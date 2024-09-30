@@ -59,6 +59,11 @@ def setup(args):
     os.makedirs(log_dir, exist_ok=True)
     for folder in ["images", "videos", "metrics", "configs_bk", "buffer_maps", "backup"]:
         os.makedirs(os.path.join(log_dir, folder), exist_ok=True)
+    global logger
+    setup_logging(output=log_dir, level=logging.INFO, time_string=current_time)
+    logger.info(
+        "\n".join("%s: %s" % (k, str(v)) for k, v in sorted(dict(vars(args)).items()))
+    )
 
     # setup wandb
     if args.enable_wandb:
@@ -79,7 +84,8 @@ def setup(args):
         wandb.config.update(args)
     # setup neptune
     if args.enable_neptune:
-        global run = neptune.init(
+        global run
+        run = neptune.init_run(
             project="liaolw/gaussian",
         )
         run["config"] = OmegaConf.to_container(cfg, resolve=True)
@@ -87,10 +93,6 @@ def setup(args):
 
     # setup random seeds
     set_seeds(cfg.seed)
-
-    global logger
-    setup_logging(output=log_dir, level=logging.INFO, time_string=current_time)
-    logger.info("\n".join("%s: %s" % (k, str(v)) for k, v in sorted(dict(vars(args)).items())))
 
     # save config
     logger.info(f"Config:\n{OmegaConf.to_yaml(cfg)}")
@@ -226,14 +228,15 @@ def main(args):
                     }
                 )
             if args.enable_neptune:
-                run["train/image_metrics/psnr"] = render_results["psnr"]
-                run["train/image_metrics/ssim"] = render_results["ssim"]
-                run["train/image_metrics/occupied_psnr"] = render_results[
-                    "occupied_psnr"
-                ]
-                run["train/image_metrics/occupied_ssim"] = render_results[
-                    "occupied_ssim"
-                ]
+                global run
+                run["train/image_metrics/psnr"].append(render_results["psnr"])
+                run["train/image_metrics/ssim"].append(render_results["ssim"])
+                run["train/image_metrics/occupied_psnr"].append(
+                    render_results["occupied_psnr"]
+                )
+                run["train/image_metrics/occupied_ssim"].append(
+                    render_results["occupied_ssim"]
+                )
             vis_frame_dict = save_videos(
                 render_results,
                 save_pth=os.path.join(
@@ -309,7 +312,7 @@ def main(args):
             wandb.log({k: v.avg for k, v in metric_logger.meters.items()})
         if args.enable_neptune:
             for k, v in metric_logger.meters.items():
-                run["train/" + k] = v.avg
+                run["train/" + k].append(v.avg)
 
         # ----------------------------------------------------------------------------
         # ----------------------------     Saving     --------------------------------
@@ -364,6 +367,7 @@ def main(args):
         dataset=dataset,
         render_keys=render_keys,
         args=args,
+        run=run if args.enable_neptune else None,
     )
 
     if args.enable_viewer:
@@ -375,8 +379,15 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Train Gaussian Splatting for a single scene")
     parser.add_argument("--config_file", help="path to config file", type=str)
-    parser.add_argument("--output_root", default="./work_dirs/", help="path to save checkpoints and logs", type=str)
-
+    # parser.add_argument("--output_root", default="./work_dirs/", help="path to save checkpoints and logs", type=str)
+    # set output root
+    cur_time = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+    parser.add_argument(
+        "--output_root",
+        default=f"./Exps/{cur_time}",
+        help="path to save checkpoints and logs",
+        type=str,
+    )
     # eval
     parser.add_argument("--resume_from", default=None, help="path to checkpoint to resume from", type=str)
     parser.add_argument("--render_video_postfix", type=str, default=None, help="an optional postfix for video")    

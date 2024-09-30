@@ -29,6 +29,7 @@ def do_evaluation(
     render_keys: Optional[List[str]] = None,
     post_fix: str = "",
     log_metrics: bool = True,
+    run=None,
 ):
     trainer.set_eval()
 
@@ -63,7 +64,7 @@ def do_evaluation(
                 wandb.log(eval_dict)
             if args.enable_neptune:
                 for k, v in eval_dict.items():
-                    run["eval/image_metrics/test/" + k] = v
+                    run["eval/image_metrics/test/" + k].append(v)
             test_metrics_file = (
                 f"{cfg.log_dir}/metrics{post_fix}/images_test_{current_time}.json"
             )
@@ -152,6 +153,7 @@ def do_evaluation(
         if args.enable_neptune:
             for k, v in vis_frame_dict.items():
                 run["eval/image_rendering/full/" + k].upload(File.as_image(v))
+            run["eval/video_rendering/full"].upload(video_output_pth)
         del render_results, vis_frame_dict
         torch.cuda.empty_cache()
 
@@ -189,7 +191,12 @@ def main(args):
     cfg = OmegaConf.merge(cfg, OmegaConf.from_cli(args.opts))
     args.enable_wandb = False
     if args.enable_neptune:
-        run = neptune.init_run(project="liaolw/gaussian")
+        global run
+        run = neptune.init_run(
+            project="liaolw/gaussian", custom_run_id="eval_" + current_time
+        )
+        run["config"] = OmegaConf.to_container(cfg, resolve=True)
+        run["args"] = args
     for folder in ["videos_eval", "metrics_eval"]:
         os.makedirs(os.path.join(log_dir, folder), exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -252,6 +259,7 @@ def main(args):
         render_keys=render_keys,
         args=args,
         post_fix="_eval",
+        run=run if args.enable_neptune else None,
     )
 
     if args.enable_viewer:
@@ -278,13 +286,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--save_catted_videos",
         type=bool,
-        default=False,
+        default=True,
         help="visualize lidar on image",
     )
 
     # viewer
     parser.add_argument("--enable_viewer", action="store_true", help="enable viewer")
-    parser.add_argument("--viewer_port", type=int, default=8080, help="viewer port")
+    parser.add_argument("--viewer_port", type=int, default=18080, help="viewer port")
 
     # misc
     parser.add_argument(

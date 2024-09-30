@@ -217,6 +217,7 @@ cs.store(name="config", node=Human4DConfig)
 
 
 def initialize_config(config_name="config"):
+    GlobalHydra.instance().clear()
     hydra.initialize(version_base="1.2", config_path=".")
     cfg = hydra.compose(config_name=config_name)
     return cfg

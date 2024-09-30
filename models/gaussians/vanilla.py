@@ -472,10 +472,7 @@ class VanillaGaussians(nn.Module):
             dup_quats,
         )
 
-    def get_gaussians(self, cam: dataclass_camera) -> Dict:
-        filter_mask = torch.ones_like(self._means[:, 0], dtype=torch.bool)
-        self.filter_mask = filter_mask
-
+    def get_colors(self, cam) -> torch.Tensor:
         # get colors of gaussians
         colors = torch.cat((self._features_dc[:, None, :], self._features_rest), dim=1)
         if self.sh_degree > 0:
@@ -486,6 +483,13 @@ class VanillaGaussians(nn.Module):
             rgbs = torch.clamp(rgbs + 0.5, 0.0, 1.0)
         else:
             rgbs = torch.sigmoid(colors[:, 0, :])
+        return rgbs
+
+    def get_gaussians(self, cam: dataclass_camera) -> Dict:
+        filter_mask = torch.ones_like(self._means[:, 0], dtype=torch.bool)
+        self.filter_mask = filter_mask
+
+        rgbs = self.get_colors(cam)
 
         activated_opacities = self.get_opacity
         activated_scales = self.get_scaling
@@ -512,6 +516,7 @@ class VanillaGaussians(nn.Module):
 
     def compute_reg_loss(self):
         loss_dict = {}
+        # Anisotropy Regularizer from PhysGaussian
         sharp_shape_reg_cfg = self.reg_cfg.get("sharp_shape_reg", None)
         if sharp_shape_reg_cfg is not None:
             w = sharp_shape_reg_cfg.w

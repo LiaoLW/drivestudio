@@ -309,10 +309,10 @@ class DrivingDataset(SceneDataset):
                 instance_active = self.pixel_source.per_frame_instance_mask[
                     fi, ins_id
                 ]  # 1 for agent ins_id appears in frame fi
-                o_type = self.pixel_source.instances_model_types[ins_id].item()
-
                 if not instance_active:
                     continue
+
+                o_type = self.pixel_source.instances_model_types[ins_id].item()
 
                 if cur_node_type == "DeformableNodes":
                     if not (
@@ -399,8 +399,11 @@ class DrivingDataset(SceneDataset):
                     #     new_instance_dict[k] = v
                     #     logger.info(f"Instance {k} has {v['num_pts']} lidar sample points")
                     frame_info = self.pixel_source.per_frame_instance_mask[:, k]
+                    # pixel_source.instances_pose: [frame_num, instance_num, 4, 4]
                     instances_pose = self.pixel_source.instances_pose[:, k]
-                    instances_trans = instances_pose[:, :3, 3]
+                    #    [[R, T],
+                    #     [0, 1]]
+                    instances_trans = instances_pose[:, :3, 3] # T, transition
                     valid_trans = instances_trans[frame_info]
                     traj_length = valid_trans[1:] - valid_trans[:-1]
                     traj_length = torch.norm(traj_length, dim=-1).sum()

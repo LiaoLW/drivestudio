@@ -1,9 +1,12 @@
 from typing import List, Callable
 import os
+import sys
 import joblib
 import logging
 import argparse
 import numpy as np
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from datasets.tools.extract_smpl import run_4DHumans
 from datasets.tools.postprocess import match_and_postprocess
@@ -131,7 +134,8 @@ if __name__ == "__main__":
         raise ValueError(
             f"Unknown dataset {args.dataset}, please choose from waymo, pandaset, argoverse, nuscenes, kitti, nuplan"
         )
-
+    if args.scene_ids is None:
+        args.scene_ids = range(0, 1000)
     if args.scene_ids is not None:
         scene_ids_list = args.scene_ids
     elif args.split_file is not None:

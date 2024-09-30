@@ -364,7 +364,7 @@ class NuScenesPixelSource(ScenePixelSource):
                                 "obj_to_world"
                             ][ii]
                         )
-                        o2w = torch.from_numpy(pose_inv @ o2w)
+                        o2w = torch.from_numpy(camera_front_inv @ o2w)
                         # box_size = instances_info[str(instance_id)]['frame_annotations']["box_size"][ii]
 
                         smpl_human_all[instance_id]["smpl_quats"][
